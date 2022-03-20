@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<!DOCTYPE cambalache-project SYSTEM "cambalache-project.dtd">
+<cambalache-project version="0.8.2" target_tk="gtk-4.0">
+  <ui>
+	(1,None,"flati.ui","flati.ui",None,None,None,None,None,None)
+  </ui>
+  <object>
+	(1,1,"GtkWindow","Window",None,None,None,None,None),
+	(1,2,"GtkButton","Button",1,None,None,None,-1)
+  </object>
+  <object_property>
+	(1,1,"GtkWindow","default-height","400",None,None,None,None),
+	(1,1,"GtkWindow","default-width","400",None,None,None,None),
+	(1,1,"GtkWindow","title","Flati",None,None,None,None),
+	(1,2,"GtkButton","label","Press me",None,None,None,None)
+  </object_property>
+</cambalache-project>
