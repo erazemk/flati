@@ -1,18 +1,19 @@
 # Flati
 
-A GTK app store for [Flatpak](https://flatpak.org/), written in Go.
+A GTK4 app store for [Flatpak](https://flatpak.org/), written in Go.
 
 ## Building
 
-1. Install Flatpak and GTK4 development libraries:
-`sudo dnf install -y flatpak gtk4-devel gobject-introspection-devel`
-2. Download and compile Go's GTK4 bindings (gotk4):
-`go get -v github.com/diamondburned/gotk4/pkg/gtk/v4` (this will take a while)
-3. Build the project: `go build github.com/erazemk/flati`
+```shell
+# Install dependencies
+sudo dnf install -y flatpak gtk4-devel gobject-introspection-devel
 
-## Features
+# (Optional) Pre-compile gotk4
+go get -v github.com/diamondburned/gotk4/pkg/gtk/v4
 
-- [Flatpak features to (not) be implemented](flatpak/README.md)
+# Build the project
+go build github.com/erazemk/flati
+```
 
 ## License
 
