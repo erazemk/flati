@@ -1,6 +1,7 @@
 # Flati
 
 A GTK4 app store for [Flatpak](https://flatpak.org/), written in Go.
+Uses [erazemk/go-flatpak](https://github.com/erazemk/go-flatpak) to interface with Flatpak.
 
 ## Building
 

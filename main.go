@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/erazemk/flati/ui"
 	"os"
 
-	"github.com/erazemk/flati/flatpak"
+	"github.com/erazemk/flati/internal/flatpak"
+	"github.com/erazemk/flati/internal/window"
 	"github.com/pborman/getopt/v2"
 )
 
@@ -19,11 +19,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Enable debug output if requested
 	flatpak.SetDebug(*debugFlag)
-
-	//fmt.Println(flatpak.Search("faaaaaaa"))
-
-	// Start a GTK window
-	ui.Start()
+	window.Start()
 }
