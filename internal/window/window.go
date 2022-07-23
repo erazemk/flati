@@ -24,7 +24,7 @@ func Start() {
 func activate(app *gtk.Application) {
 	counter := 0
 	builder := gtk.NewBuilderFromString(uiFileXML, len(uiFileXML))
-	window := builder.GetObject("Window").Cast().(*gtk.Window)
+	window := builder.GetObject("MainWindow").Cast().(*gtk.Window)
 	button := builder.GetObject("Button").Cast().(*gtk.Button)
 
 	button.Connect("clicked", func() {
