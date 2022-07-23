@@ -5,16 +5,11 @@ Uses [erazemk/go-flatpak](https://github.com/erazemk/go-flatpak) to interface wi
 
 ## Building
 
-```shell
-# Install dependencies
-sudo dnf install -y flatpak gtk4-devel gobject-introspection-devel
-
-# (Optional) Pre-compile gotk4
-go get -v github.com/diamondburned/gotk4/pkg/gtk/v4
-
-# Build the project
-go build github.com/erazemk/flati
-```
+1. Install dependencies
+    * Fedora: `sudo dnf install -y flatpak gtk4-devel gobject-introspection-devel`
+    * Ubuntu: `sudo apt install -y flatpak libflatpak-dev libgtk-4-dev gobject-introspection`
+2. (Optional) Pre-compile gotk4: `go get -v github.com/diamondburned/gotk4/pkg/gtk/v4`
+3. Build the project: `go build -v github.com/erazemk/flati`
 
 ## License
 
