@@ -2,6 +2,11 @@
 
 A GTK app store for [Flatpak](https://flatpak.org/) applications.
 
+## Screenshots
+
+![Initial window](res/initial_window.png)
+
+![Main window](res/main_window.png)
 
 ## License
 
