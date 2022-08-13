@@ -17,7 +17,7 @@
         <property name="spacing">16</property>
         <property name="visible">True</property>
         <child>
-          <object class="GtkButton" id="uninstall_button">
+          <object class="GtkButton" id="app_button">
             <property name="can-focus">True</property>
             <property name="halign">end</property>
             <property name="label" translatable="yes">Uninstall</property>
