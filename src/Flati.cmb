@@ -81,7 +81,7 @@
 	(2,52,"GtkStackSwitcher","stack","32",None,None,None,None,None),
 	(2,52,"GtkWidget","halign","center",None,None,None,None,None),
 	(2,52,"GtkWidget","valign","center",None,None,None,None,None),
-	(2,53,"GtkButton","label","Refresh",None,None,None,None,None),
+	(2,53,"GtkButton","label","Install new",None,None,None,None,None),
 	(2,53,"GtkWidget","halign","center",None,None,None,None,None),
 	(2,53,"GtkWidget","valign","center",None,None,None,None,None),
 	(4,1,"GtkWidget","can-focus","True",None,None,None,None,None),
