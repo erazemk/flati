@@ -1,5 +1,4 @@
 import logging
-
 import gi
 
 gi.require_version('Flatpak', '1.0')
@@ -30,10 +29,7 @@ def get_remote_apps() -> [Flatpak.RemoteRef]:
 
     for remote in remotes:
         if remote.get_disabled() is False:
-            # Get remote apps
             remote_apps.extend(installation.list_remote_refs_sync(remote.get_name(), None))
-
-            # Update local appstream
             installation.update_appstream_sync(remote.get_name(), arch, None, None)
 
     return remote_apps
