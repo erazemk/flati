@@ -15,60 +15,78 @@ class Flati:
 
         self.window = self.builder.get_object("window")
         self.window_stack = self.builder.get_object("window_stack")
+        self.window_box = self.builder.get_object("window_box")
         self.list_window = self.builder.get_object("list_window")
         self.app_list_button = self.builder.get_object("app_list_button")
 
+        self.list_scroll_window = self.builder.get_object("list_scroll_window")
+        self.updates_scroll_window = self.builder.get_object("updates_scroll_window")
+
         self.window_stack.connect("notify::visible-child", self.on_stack_visible_child_switch)
 
-        if flatpak.num_of_installed_apps() == 0:
-            # TODO: Add a label saying there are no installed applications
-            pass
-        else:
-            self.fill_list_box()
-
-        self.window.show_all()
+        self.fill_list_box()
 
     def fill_list_box(self):
-        listbox = self.builder.get_object("app_list_box")
-        for child in listbox.get_children():
-            listbox.remove(child)
-
+        """Fills the list box with the applications"""
         window_name = self.window_stack.get_visible_child_name()
-
+        no_apps_label_markup = ""
+        listbox = None
         app_list = []
+
         if window_name == "installed-apps":
             # Fill list with installed applications
             app_list = flatpak.installed_apps()
+            listbox = self.builder.get_object("app_list_box")
+            no_apps_label_markup = "<span size='large' weight='bold'>No installed applications</span>"
         elif window_name == "updatable-apps":
             # Fill list with updatable applications
             app_list = flatpak.get_updates()
+            listbox = self.builder.get_object("updates_list_box")
+            no_apps_label_markup = "<span size='large' weight='bold'>No updatable applications</span>"
         else:
             print("Unknown window name: " + window_name)
 
-        for app in app_list:
-            row_builder = Gtk.Builder()
-            row_builder.add_from_file("applist.ui")
-            row_builder.connect_signals(self)
-            row = row_builder.get_object("app_row")
+        for child in listbox.get_children():
+            listbox.remove(child)
 
-            # app_icon = self.builder.get_object("app_icon")
+        if len(app_list) != 0:
+            print(window_name + " has " + str(len(app_list)) + " apps")
+            for app in app_list:
+                row_builder = Gtk.Builder()
+                row_builder.add_from_file("applist.ui")
+                row_builder.connect_signals(self)
+                row = row_builder.get_object("app_row")
 
-            app_name = row_builder.get_object("app_name")
-            app_name.set_property("label", app.get_appdata_name())
+                # app_icon = self.builder.get_object("app_icon")
 
-            app_summary = row_builder.get_object("app_summary")
-            app_summary.set_property("label", app.get_appdata_summary())
+                app_name = row_builder.get_object("app_name")
+                app_name.set_property("label", app.get_appdata_name())
 
-            app_version = row_builder.get_object("app_version")
-            app_version.set_property("label", app.get_appdata_version())
+                app_summary = row_builder.get_object("app_summary")
+                app_summary.set_property("label", app.get_appdata_summary())
 
-            app_size = row_builder.get_object("app_size")
-            app_size.set_property("label", str(round(app.get_installed_size() / 1000000.0, 1)) + " MB")
+                app_version = row_builder.get_object("app_version")
+                app_version.set_property("label", app.get_appdata_version())
 
-            app_button = row_builder.get_object("app_button")
-            app_button.connect("clicked", self.on_app_button_clicked, app)
+                app_size = row_builder.get_object("app_size")
+                app_size.set_property("label", str(round(app.get_installed_size() / 1000000.0, 1)) + " MB")
 
-            listbox.add(row)
+                app_button = row_builder.get_object("app_button")
+                app_button.connect("clicked", self.on_app_button_clicked, app)
+
+                listbox.add(row)
+        else:
+            print(window_name + ": No apps")
+            no_apps_label = Gtk.Label()
+            no_apps_label.set_markup(no_apps_label_markup)
+
+            list_box_row = Gtk.ListBoxRow()
+            list_box_row.add(no_apps_label)
+            list_box_row.set_property("expand", True)
+
+            listbox.add(list_box_row)
+
+        self.window.show_all()
 
     def on_stack_visible_child_switch(self, widget, param):
         """Updates app list button label based on the visible child of the stack"""
@@ -96,12 +114,7 @@ class Flati:
                 file = dialog.get_filename()
                 dialog.hide()
                 flatpak.install_app(file)
-
-                if flatpak.num_of_installed_apps() == 0:
-                    # TODO: Add a label saying there are no installed applications
-                    pass
-                else:
-                    self.fill_list_box()
+                self.fill_list_box()
             else:
                 print("No file selected")
         elif window_name == "updatable-apps":
@@ -116,20 +129,10 @@ class Flati:
 
         if window_name == "installed-apps":
             flatpak.uninstall_app(ref)
-
-            if flatpak.num_of_installed_apps() == 0:
-                # TODO: Add a label saying there are no installed applications
-                pass
-            else:
-                self.fill_list_box()
+            self.fill_list_box()
         elif window_name == "updatable-apps":
             flatpak.update_app(ref)
-
-            if flatpak.num_of_updatable_apps() == 0:
-                # TODO: Add a label saying there are no updatable applications
-                pass
-            else:
-                self.fill_list_box()
+            self.fill_list_box()
         else:
             print("Unknown window name: " + window_name)
 

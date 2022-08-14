@@ -30,12 +30,12 @@ def update_appstream(remote):
         print("Updated appstream for " + remote)
 
 
-def get_updates() -> list[Flatpak.InstalledRef]:
+def get_updates() -> [Flatpak.InstalledRef]:
     """Returns a list of available updates"""
     return installation.list_installed_refs_for_update(None)
 
 
-def installed_apps() -> list[Flatpak.InstalledRef]:
+def installed_apps() -> [Flatpak.InstalledRef]:
     """Returns a list of installed applications"""
     return installation.list_installed_refs_by_kind(Flatpak.RefKind.APP, None)
 

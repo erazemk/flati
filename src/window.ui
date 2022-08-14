@@ -54,7 +54,7 @@
                 <property name="orientation">vertical</property>
                 <property name="visible">True</property>
                 <child>
-                  <object class="GtkScrolledWindow">
+                  <object class="GtkScrolledWindow" id="list_scroll_window">
                     <property name="can-focus">True</property>
                     <property name="shadow-type">in</property>
                     <property name="visible">True</property>
@@ -89,7 +89,7 @@
                 <property name="orientation">vertical</property>
                 <property name="visible">True</property>
                 <child>
-                  <object class="GtkScrolledWindow">
+                  <object class="GtkScrolledWindow" id="updates_scroll_window">
                     <property name="can-focus">True</property>
                     <property name="shadow-type">in</property>
                     <property name="visible">True</property>
