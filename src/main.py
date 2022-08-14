@@ -1,3 +1,5 @@
+import logging
+
 import gi
 
 import flatpak
@@ -9,10 +11,12 @@ from gi.repository import Gtk
 
 class Flati:
     def __init__(self):
+        # Initialize GTK Builder to embed the UI
         self.builder = Gtk.Builder()
         self.builder.add_from_file("window.ui")
         self.builder.connect_signals(self)
 
+        # Global objects
         self.window = self.builder.get_object("window")
         self.window_stack = self.builder.get_object("window_stack")
         self.app_list_button = self.builder.get_object("app_list_button")
@@ -27,29 +31,32 @@ class Flati:
         listbox = None
         app_list = []
 
+        # Fill application list based on visible window
         if window_name == "installed-apps":
-            # Fill list with installed applications
             app_list = flatpak.get_installed_apps()
             listbox = self.builder.get_object("app_list_box")
             no_apps_label_markup = "<span size='large' weight='bold'>No installed applications</span>"
         elif window_name == "updatable-apps":
-            # Fill list with updatable applications
             app_list = flatpak.get_updates()
             listbox = self.builder.get_object("updates_list_box")
             no_apps_label_markup = "<span size='large' weight='bold'>All applications are up-to-date</span>"
         else:
-            print("Unknown window name: " + window_name)
+            logging.error("Unknown window name: " + window_name)
 
+        # Remove previous listed applications
         for child in listbox.get_children():
             listbox.remove(child)
 
-        print("Apps for " + window_name + ": ")
+        # Debug: Print list of applications
+        logging.debug("Apps for {}:".format(window_name))
         for app in app_list:
-            print(app)
+            logging.debug(app.get_name())
 
         if len(app_list) != 0:
-            print(window_name + " has " + str(len(app_list)) + " apps")
+            logging.debug("{} has {} apps".format(window_name, len(app_list)))
+
             for app in app_list:
+                # Initialize GTK Builder to embed the list row
                 row_builder = Gtk.Builder()
                 row_builder.add_from_file("applist.ui")
                 row_builder.connect_signals(self)
@@ -74,7 +81,8 @@ class Flati:
 
                 listbox.add(row)
         else:
-            print(window_name + ": No apps")
+            # Display a message if no applications are installed/updatable
+            logging.debug("No apps for " + window_name)
             no_apps_label = Gtk.Label()
             no_apps_label.set_markup(no_apps_label_markup)
 
@@ -95,7 +103,7 @@ class Flati:
         elif window_name == "updatable-apps":
             self.app_list_button.set_label("Update all")
         else:
-            print("Unknown window name: " + window_name)
+            logging.error("Unknown window name: " + window_name)
 
         self.fill_list_box()
 
@@ -114,12 +122,12 @@ class Flati:
                 flatpak.install_app(file)
                 self.fill_list_box()
             else:
-                print("No file selected")
+                logging.debug("No file selected")
         elif window_name == "updatable-apps":
             # Update all applications
             flatpak.update_all_apps()
         else:
-            print("Unknown window name: " + window_name)
+            logging.error("Unknown window name: " + window_name)
 
     def on_app_button_clicked(self, obj, ref):
         """Either uninstalls an application or updates it"""
@@ -132,7 +140,7 @@ class Flati:
             flatpak.update_app(ref)
             self.fill_list_box()
         else:
-            print("Unknown window name: " + window_name)
+            logging.error("Unknown window name: " + window_name)
 
     def on_close_dialog(self, widget, event):
         return self.builder.get_object("file_chooser_dialog").hide_on_delete()
