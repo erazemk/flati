@@ -35,19 +35,23 @@ class Flati:
 
         if window_name == "installed-apps":
             # Fill list with installed applications
-            app_list = flatpak.installed_apps()
+            app_list = flatpak.get_installed_apps()
             listbox = self.builder.get_object("app_list_box")
             no_apps_label_markup = "<span size='large' weight='bold'>No installed applications</span>"
         elif window_name == "updatable-apps":
             # Fill list with updatable applications
             app_list = flatpak.get_updates()
             listbox = self.builder.get_object("updates_list_box")
-            no_apps_label_markup = "<span size='large' weight='bold'>No updatable applications</span>"
+            no_apps_label_markup = "<span size='large' weight='bold'>All applications are up-to-date</span>"
         else:
             print("Unknown window name: " + window_name)
 
         for child in listbox.get_children():
             listbox.remove(child)
+
+        print("Apps for " + window_name + ": ")
+        for app in app_list:
+            print(app)
 
         if len(app_list) != 0:
             print(window_name + " has " + str(len(app_list)) + " apps")

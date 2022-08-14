@@ -32,7 +32,7 @@
             <child>
               <object class="GtkButton" id="app_list_button">
                 <property name="halign">center</property>
-                <property name="label">Install new</property>
+                <property name="label">Refresh</property>
                 <property name="valign">center</property>
                 <signal name="clicked" handler="on_app_list_button_clicked"/>
               </object>
@@ -80,6 +80,7 @@
               </object>
               <packing>
                 <property name="name">installed-apps</property>
+                <property name="position">1</property>
                 <property name="title">Installed</property>
               </packing>
             </child>
@@ -115,6 +116,7 @@
               </object>
               <packing>
                 <property name="name">updatable-apps</property>
+                <property name="position">2</property>
                 <property name="title">Updates</property>
               </packing>
             </child>

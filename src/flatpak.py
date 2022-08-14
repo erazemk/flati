@@ -19,6 +19,21 @@ def sync_remotes():
             print(err)
 
 
+def get_remote_apps() -> [Flatpak.RemoteRef]:
+    """Returns a list of remote applications"""
+    remote_apps = []
+
+    for remote in remotes:
+        if remote.get_disabled() is False:
+            # Get remote apps
+            remote_apps.extend(installation.list_remote_refs_sync(remote.get_name(), None))
+
+            # Update local appstream
+            installation.update_appstream_sync(remote.get_name(), arch, None, None)
+
+    return remote_apps
+
+
 def update_appstream(remote):
     """Updates the local copy of appstream for remote"""
     print("Updating appstream for " + remote)
@@ -35,17 +50,17 @@ def get_updates() -> [Flatpak.InstalledRef]:
     return installation.list_installed_refs_for_update(None)
 
 
-def installed_apps() -> [Flatpak.InstalledRef]:
+def get_installed_apps() -> [Flatpak.InstalledRef]:
     """Returns a list of installed applications"""
     return installation.list_installed_refs_by_kind(Flatpak.RefKind.APP, None)
 
 
-def num_of_installed_apps():
+def get_num_of_installed_apps() -> int:
     """Returns the number of installed applications"""
-    return len(installed_apps())
+    return len(get_installed_apps())
 
 
-def num_of_updatable_apps():
+def get_num_of_updatable_apps() -> int:
     """Returns the number of updatable applications"""
     return len(get_updates())
 
