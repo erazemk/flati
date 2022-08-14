@@ -15,15 +15,9 @@ class Flati:
 
         self.window = self.builder.get_object("window")
         self.window_stack = self.builder.get_object("window_stack")
-        self.window_box = self.builder.get_object("window_box")
-        self.list_window = self.builder.get_object("list_window")
         self.app_list_button = self.builder.get_object("app_list_button")
 
-        self.list_scroll_window = self.builder.get_object("list_scroll_window")
-        self.updates_scroll_window = self.builder.get_object("updates_scroll_window")
-
         self.window_stack.connect("notify::visible-child", self.on_stack_visible_child_switch)
-
         self.fill_list_box()
 
     def fill_list_box(self):
