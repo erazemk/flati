@@ -11,6 +11,7 @@
     <property name="role">Flati</property>
     <property name="startup-id">Flati</property>
     <property name="title" translatable="yes">Flati</property>
+    <signal name="destroy" handler="on_window_destroy"/>
     <child>
       <object class="GtkBox">
         <property name="orientation">vertical</property>

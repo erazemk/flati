@@ -14,14 +14,17 @@ logging.basicConfig(level=logging.DEBUG if parser.parse_args().debug else loggin
 log = logging.getLogger('main')
 
 
+# TODO: Add Explore tab, parse appstream for each app and show info
+# TODO: Fix native file chooser not closing on file selection
+# TODO: Try beautifulsoup for parsing appstream
+
+
 class Flati:
     def __init__(self):
-        # Initialize GTK Builder to embed the UI
         self.builder = Gtk.Builder()
         self.builder.add_from_file("window.ui")
         self.builder.connect_signals(self)
 
-        # Global objects
         self.window = self.builder.get_object("window")
         self.window_stack = self.builder.get_object("window_stack")
         self.app_list_button = self.builder.get_object("app_list_button")
@@ -43,7 +46,7 @@ class Flati:
                 listbox = self.builder.get_object("app_list_box")
                 no_apps_label_markup = "<span size='large' weight='bold'>No installed applications</span>"
             case "updatable-apps":
-                app_list = flatpak.get_updates()
+                app_list = flatpak.get_updatable_apps()
                 listbox = self.builder.get_object("updates_list_box")
                 no_apps_label_markup = "<span size='large' weight='bold'>All applications are up-to-date</span>"
             case _:
@@ -59,13 +62,13 @@ class Flati:
             log.debug("'{}' has {} apps".format(window_name, len(app_list)))
 
             for app in app_list:
-                # Initialize GTK Builder to embed the list row
                 row_builder = Gtk.Builder()
                 row_builder.add_from_file("applist.ui")
                 row_builder.connect_signals(self)
                 row = row_builder.get_object("app_row")
 
-                # app_icon = self.builder.get_object("app_icon")
+                app_icon = row_builder.get_object("app_icon")
+                app_icon.set_from_file(flatpak.get_app_icon(app))
 
                 app_name = row_builder.get_object("app_name")
                 app_name.set_property("label", app.get_appdata_name())
@@ -82,9 +85,12 @@ class Flati:
                 app_button = row_builder.get_object("app_button")
                 app_button.connect("clicked", self.on_app_button_clicked, app)
 
+                if window_name == "updatable-apps":
+                    app_button.set_property("label", "Update")
+
                 listbox.add(row)
         else:
-            # Display a message if no applications are installed/updatable
+            # Debug: Display a message if no applications are installed/updatable
             log.debug("No apps for " + window_name)
             no_apps_label = Gtk.Label()
             no_apps_label.set_markup(no_apps_label_markup)
@@ -98,7 +104,7 @@ class Flati:
         self.window.show_all()
 
     def on_stack_visible_child_switch(self, widget, param):
-        """Updates app list button label based on the visible child of the stack"""
+        """Updates app list button label based on visible window"""
         window_name = self.window_stack.get_visible_child_name()
 
         match window_name:
@@ -119,7 +125,6 @@ class Flati:
             case "installed-apps":
                 # Install new application
                 dialog = self.builder.get_object("file_chooser")
-                dialog.show()
                 response = dialog.run()
 
                 if response == Gtk.ResponseType.ACCEPT:
@@ -155,3 +160,4 @@ class Flati:
 
 Flati()
 Gtk.main()
+flatpak.cleanup()
