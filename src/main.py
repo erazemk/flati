@@ -2,6 +2,7 @@ import logging
 import gi
 import flatpak
 import argparse
+import threading
 
 gi.require_version("Gtk", "3.0")
 
@@ -16,7 +17,6 @@ log = logging.getLogger('main')
 
 # TODO: Add Explore tab, parse appstream for each app and show info
 # TODO: Fix native file chooser not closing on file selection
-# TODO: Try beautifulsoup for parsing appstream
 
 
 class Flati:
@@ -26,11 +26,16 @@ class Flati:
         self.builder.connect_signals(self)
 
         self.window = self.builder.get_object("window")
+        self.window.connect("destroy", Gtk.main_quit)
         self.window_stack = self.builder.get_object("window_stack")
         self.app_list_button = self.builder.get_object("app_list_button")
 
         self.window_stack.connect("notify::visible-child", self.on_stack_visible_child_switch)
         self.fill_list_box()
+
+        thread = threading.Thread(target=flatpak.parse_all_remote_xml)
+        thread.daemon = True
+        thread.start()
 
     def fill_list_box(self):
         """Fills the list box with the applications"""
@@ -67,20 +72,22 @@ class Flati:
                 row_builder.connect_signals(self)
                 row = row_builder.get_object("app_row")
 
+                app_info = flatpak.get_app_info(app)
+
                 app_icon = row_builder.get_object("app_icon")
-                app_icon.set_from_file(flatpak.get_app_icon(app))
+                app_icon.set_from_file(app_info["icon"])
 
                 app_name = row_builder.get_object("app_name")
-                app_name.set_property("label", app.get_appdata_name())
+                app_name.set_property("label", app_info["name"])
 
                 app_summary = row_builder.get_object("app_summary")
-                app_summary.set_property("label", app.get_appdata_summary())
+                app_summary.set_property("label", app_info["summary"])
 
                 app_version = row_builder.get_object("app_version")
-                app_version.set_property("label", app.get_appdata_version())
+                app_version.set_property("label", app_info["version"])
 
                 app_size = row_builder.get_object("app_size")
-                app_size.set_property("label", str(round(app.get_installed_size() / 1000000.0, 1)) + " MB")
+                app_size.set_property("label", app_info["size_str"])
 
                 app_button = row_builder.get_object("app_button")
                 app_button.connect("clicked", self.on_app_button_clicked, app)

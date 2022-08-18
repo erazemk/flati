@@ -170,8 +170,7 @@
 	(4,8,10,"GtkBoxLayoutChild","fill","True",None,None,None,None)
   </object_layout_property>
   <object_signal>
-	(9,2,53,"GtkButton","clicked","on_app_list_button_clicked",None,None,None,None,None),
-	(10,2,16,"GtkWidget","destroy","on_window_destroy",None,None,None,None,None)
+	(9,2,53,"GtkButton","clicked","on_app_list_button_clicked",None,None,None,None,None)
   </object_signal>
   <object_data>
 	(4,9,"GtkLabel",1,1,None,None,None),
