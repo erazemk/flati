@@ -14,6 +14,9 @@ logging.basicConfig(level=logging.DEBUG if parser.parse_args().debug else loggin
 log = logging.getLogger('Flati.main')
 
 
+# TODO: Get app info in a separate thread to avoid locking up UI
+
+
 class Flati:
     remote_apps_list_updated = False
 
