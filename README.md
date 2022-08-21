@@ -6,9 +6,13 @@ Dependencies (Fedora): `python3-gobject gtk3 flatpak-devel flatpak-libs`
 
 ## Screenshots
 
-![Initial window](res/initial_window.png)
+![Explore apps window](res/explore-apps-window.png)
 
-![Main window](res/main_window.png)
+![Installed apps window](res/installed-apps-window.png)
+
+![Updatable apps window](res/updatable-apps-window.png)
+
+![Install an app](res/install-flatpakref-window.png)
 
 ## License
 
