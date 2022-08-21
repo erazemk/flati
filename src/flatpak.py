@@ -1,12 +1,7 @@
-import configparser
 import gzip
 import logging
-import shutil
-import tempfile
 import threading
-
 import gi
-import requests
 
 gi.require_version('Flatpak', '1.0')
 
@@ -14,17 +9,15 @@ from gi.repository import GLib, Flatpak
 from os import path
 from bs4 import BeautifulSoup
 
-installation = Flatpak.get_system_installations()[0]
-arch = Flatpak.get_default_arch()
-session = requests.Session()
-log = logging.getLogger('flatpak')
-tempdir = tempfile.TemporaryDirectory()
-config = configparser.ConfigParser()
+installation: Flatpak.Installation = Flatpak.get_system_installations()[0]
+default_arch: str = Flatpak.get_default_arch()
+log: logging.Logger = logging.getLogger('Flati.flatpak')
 appstream_xml = {}
 xml_parsing_threads: {str, threading.Thread} = {}
 
 
 def get_remotes() -> [Flatpak.Remote]:
+    """Returns a list of currently enabled remotes (http(s) only, not OCI)"""
     all_remotes: [Flatpak.Remote] = installation.list_remotes()
 
     remote_list = []
@@ -33,159 +26,212 @@ def get_remotes() -> [Flatpak.Remote]:
         if not remote_url.startswith("oci+") and not remote.get_disabled():
             remote_list.append(remote)
 
-    log.info("Remotes: " + str(remote_list))
     return remote_list
 
 
-remotes = get_remotes()
+def update_remote_info():
+    """Updates local configuration and appstream for all enabled http(s) remotes"""
+    log.debug("Updating local configuration for all remotes")
 
-
-def sync_remotes():
-    """Sync all system remotes"""
-    log.debug("Syncing remotes")
-
-    for remote in remotes:
+    for remote in get_remotes():
+        remote_name = remote.get_name()
         try:
-            installation.update_remote_sync(remote.get_name(), None)
+            installation.update_remote_sync(remote_name, None)
+            installation.update_appstream_sync(remote_name, default_arch, None, None)
         except GLib.Error as err:
             log.error(err)
 
 
-def parse_remote_xml(remote_name):
-    """Parses appstream xml for a remote"""
-    xml_path = installation.get_remote_by_name(remote_name).get_appstream_dir().get_path()
-    xml_file = xml_path + "/active/appstream.xml.gz"
+def parse_remote_xml(remote_name: str):
+    """Parses appstream of a remote to get info about its applications"""
+    # Don't parse the XML file again, if it has already been parsed
+    if remote_name in appstream_xml:
+        return
 
-    if not path.exists(xml_file):
+    log.debug("Parsing XML for '{}'".format(remote_name))
+    xml_path = installation \
+        .get_remote_by_name(remote_name) \
+        .get_appstream_dir() \
+        .get_path()
+    log.debug("Appstream directory for '{}': {}".format(remote_name, xml_path))
+    xml_file = xml_path + "/appstream.xml"
+
+    # Open appstream.xml if it exists, otherwise open appstream.xml.gz
+    if path.exists(xml_file):
+        with open(xml_file, 'rb') as xml:
+            appstream_xml[remote_name] = BeautifulSoup(xml, "xml")
+    else:
         xml_file = xml_path + "/appstream.xml.gz"
+        if path.exists(xml_file):
+            with gzip.open(xml_file, 'rb') as xml:
+                appstream_xml[remote_name] = BeautifulSoup(xml, "xml")
+        else:
+            log.error("XML file for '{}' not found!".format(remote_name))
 
-    if not path.exists(xml_file):
-        log.error("XML file for {} not found!".format(remote_name))
-
-    log.debug("Parsing XML for " + remote_name)
-
-    if remote_name not in appstream_xml:
-        with gzip.open(xml_file, 'rb') as archive:
-            appstream_xml[remote_name] = BeautifulSoup(archive.read(), "xml")
-
-    log.debug("Finished parsing XML for " + remote_name)
+    log.info("Finished parsing XML for '{}'".format(remote_name))
 
 
-def parse_all_remote_xml():
-    """Parses appstream xml for all remotes"""
-    for remote in remotes:
+def parse_all_remote_xmls():
+    """Wrapper around parse_remote_xml to parse appstream for all remotes in parallel"""
+    for remote in get_remotes():
         remote_name = remote.get_name()
+        thread_name = "AppstreamParser_" + remote_name
         thread = threading.Thread(
             target=parse_remote_xml,
             daemon=True,
-            name=remote_name,
+            name=thread_name,
             args=(remote_name,)
         )
-        xml_parsing_threads[remote_name] = thread
+
+        xml_parsing_threads[thread_name]: threading.Thread = thread
         thread.start()
 
 
-def get_remote_app(app) -> Flatpak.RemoteRef:
-    """Returns a remote instance of the application"""
-    log.debug("Getting remote application " + app.get_name())
+def get_remote_ref(ref: Flatpak.Ref) -> Flatpak.RemoteRef:
+    """Returns a RemoteRef object of a (Installed)Ref"""
+    remote_name = ref.get_origin()
+    app_kind = ref.get_kind()
+    app_name = ref.get_name()
+    app_branch = ref.get_branch()
 
-    remote_name = app.get_origin()
-    app_kind = app.get_kind()
-    app_name = app.get_name()
-    app_branch = app.get_branch()
+    log.debug("Getting RemoteRef for '{}'".format(app_name))
+    return installation.fetch_remote_ref_sync(
+        remote_name,
+        app_kind,
+        app_name,
+        default_arch,
+        app_branch,
+        None
+    )
 
-    return installation.fetch_remote_ref_sync(remote_name, app_kind, app_name, arch, app_branch, None)
 
+def get_installed_ref_info(ref: Flatpak.InstalledRef) -> dict:
+    """Returns info about an installed application"""
+    return {
+        # From Flatpak.Ref
+        "arch": ref.get_arch(),
+        "branch": ref.get_branch(),
+        "collection-id": ref.get_collection_id(),
+        "commit": ref.get_commit(),
+        "kind": ref.get_kind(),
+        "id": ref.get_name(),
 
-def get_installed_app_info(app) -> dict:
-    """Returns a dictionary of info about an application"""
-    app_info = {
-        "id": app.get_name(),
-        "name": app.get_appdata_name(),
-        "summary": app.get_appdata_summary(),
-        "version": app.get_appdata_version(),
-        "icon": get_app_icon(app.get_name(), app.get_origin()),
-        "size": app.get_installed_size(),
-        "size-str": str(round(app.get_installed_size() / 1000000.0, 1)) + " MB"
+        # From Flatpak.InstalledRef
+        "content-rating": ref.get_appdata_content_rating(),
+        "content-rating-type": ref.get_appdata_content_rating_type(),
+        "license": ref.get_appdata_license(),
+        "name": ref.get_appdata_name(),
+        "summary": ref.get_appdata_summary(),
+        "version": ref.get_appdata_version(),
+        "deploy-dir": ref.get_deploy_dir(),
+        "eol": ref.get_eol(),
+        "eol-rebase": ref.get_eol_rebase(),
+        "size": ref.get_installed_size(),
+        "is-current": ref.get_is_current(),
+        "latest-commit": ref.get_latest_commit(),
+        "remote": ref.get_origin(),
+        "subpaths": ref.get_subpaths(),
+
+        # Extra
+        "size-str": str(round(ref.get_installed_size() / 1000000.0, 1)) + " MB",
+        "icon": get_app_icon(ref.get_name(), ref.get_origin()),
+        "ref": ref,
     }
 
-    return app_info
+
+def get_installed_apps_info() -> [dict]:
+    """Returns info about installed applications"""
+    info_list: [{}] = []
+    app_list = get_installed_apps()
+
+    app: Flatpak.InstalledRef
+    for app in app_list:
+        info_list.append(get_installed_ref_info(app))
+
+    return info_list
 
 
-# def get_app_metadata(app) -> bytes:
-#     """Returns an application's metadata"""
-#     log.debug("Getting metadata for " + app.get_name())
-#
-#     if app is Flatpak.InstalledRef:
-#         remote_name = app.get_origin()
-#         remote_metadata = installation.fetch_remote_metadata_sync(remote_name, app, None)
-#     else:
-#         remote_metadata = app.get_metadata()
-#
-#     return remote_metadata.get_data()
-#
-#
-# def parse_remote_metadata(ref) -> dict:
-#     """Parses metadata for a remote application"""
-#     log.debug("Parsing metadata for " + ref.get_name())
-#
-#     metadata = get_app_metadata(ref)
-#     config.read(metadata)
-#     log.debug("Sections: " + str(config.sections()))
-#
-#     return {}
+def get_updatable_apps_info() -> [dict]:
+    """Returns info about updatable apps"""
+    info_list: [{}] = []
+    app_list = get_updatable_apps()
+
+    app: Flatpak.InstalledRef
+    for app in app_list:
+        info_list.append(get_installed_ref_info(app))
+
+    return info_list
 
 
-def get_remote_apps() -> [Flatpak.RemoteRef]:
-    """Returns a list of remote applications"""
-    log.debug("Getting remote applications")
-    remote_apps = []
+def get_remote_apps_info() -> [dict]:
+    """Returns info about remote applications"""
+    app_list: [{}] = []
 
-    for remote in remotes:
-        for ref in installation.list_remote_refs_sync(remote.get_name(), None):
-            # Only add desktop applications, not runtimes
-            if ref.get_kind() is Flatpak.RefKind.APP:
-                remote_apps.append(ref)
-
-        log.debug("Remote appstream dir ({}): {}".format(remote.get_name(), remote.get_appstream_dir().get_path()))
-
-    return remote_apps
-
-
-def get_remote_app_info() -> [dict]:
-    """Returns a list of infos about remote apps"""
-    app_list = []
-
-    for remote in remotes:
+    for remote in get_remotes():
         remote_name = remote.get_name()
+        thread_name = "AppstreamParser_" + remote_name
 
-        # Get cached xml or read it
+        # Get info from previously parsed XML or wait for it to be parsed
         if remote_name not in appstream_xml:
-            if remote_name in xml_parsing_threads:
+            if thread_name in xml_parsing_threads:
                 # Join existing parsing thread
-                thread: threading.Thread = xml_parsing_threads[remote_name]
+                thread: threading.Thread = xml_parsing_threads[thread_name]
                 thread.join()
-                del xml_parsing_threads[remote_name]
+
+                # Delete thread reference from list of running threads
+                del xml_parsing_threads[thread_name]
             else:
                 # Wait for function to finish
                 parse_remote_xml(remote_name)
 
         # Store info for each app
         for app in appstream_xml[remote_name].find_all("component", {"type": "desktop"}):
+            app_id = app.find("id").text
+            app_branch = app.find("bundle").text.split("/")[-1]
+
+            remote_ref: Flatpak.RemoteRef
+            try:
+                remote_ref = installation.fetch_remote_ref_sync(
+                    remote_name,
+                    Flatpak.RefKind.APP,
+                    app_id,
+                    default_arch,
+                    app_branch,
+                    None
+                )
+            except GLib.GError as err:
+                # log.info("Could not get remote ref for '{}': {}".format(app_id, err))
+                continue
+
             app_info = {
-                "id": app.find("id").text,
+                # From appstream file
+                "id": app_id,
                 "name": app.find("name").text,
                 "summary": app.find("summary").text,
-                "size": 0,  # app.get_installed_size()
-                "size-str": "",  # str(round(app.get_installed_size() / 1000000.0, 1)) + " MB",
-                "icon": get_app_icon(app.find("id").text, remote_name),
-                "remote-name": remote_name
+                "description": app.find("description").text,
+
+                # From Flatpak.RemoteRef
+                "arch": remote_ref.get_arch(),
+                "branch": remote_ref.get_branch(),
+                "collection-id": remote_ref.get_collection_id(),
+                "commit": remote_ref.get_commit(),
+                "kind": remote_ref.get_kind(),
+                "size": remote_ref.get_download_size(),
+                "eol": remote_ref.get_eol(),
+                "eol-rebase": remote_ref.get_eol_rebase(),
+                "remote": remote_ref.get_remote_name(),
+
+                # Extra
+                "size-str": str(round(remote_ref.get_download_size() / 1000000.0, 1)) + " MB",
+                "icon": get_app_icon(app_id, remote_name),
+                "ref": remote_ref,
             }
 
+            # Version might not be present in appstream file
             try:
                 app_info["version"] = app.find("release").get("version")
             except (KeyError, AttributeError):
-                app_info["version"] = "0.0.0"
+                app_info["version"] = ""
 
             app_list.append(app_info)
 
@@ -193,97 +239,37 @@ def get_remote_app_info() -> [dict]:
     return app_list
 
 
-def get_app_icon_remote(app) -> str:
-    """Returns the icon for an application"""
-    log.debug("Getting icon for " + app.get_name())
+def get_app_icon(app_id: str, remote_name: str) -> str:
+    """Returns the path of an app icon file"""
+    log.debug("Getting local icon path for '{}'".format(app_id))
 
-    if type(app) is Flatpak.InstalledRef:
-        remote = installation.get_remote_by_name(app.get_origin())
-    else:
-        remote = installation.get_remote_by_name(app.get_remote_name())
-
-    remote_icon_name = app.get_name() + ".png"
-    remote_icon_url = remote.get_url() + "appstream/x86_64/icons/64x64/" + remote_icon_name
-    icon_file = path.join(tempdir.name, remote_icon_name)
-
-    # Download icon if not cached
+    appstream_path = installation \
+        .get_remote_by_name(remote_name) \
+        .get_appstream_dir() \
+        .get_path()
+    icon_file = "{}/icons/64x64/{}.png".format(appstream_path, app_id)
     if not path.exists(icon_file):
-        log.debug("Downloading icon for " + app.get_name())
-        r = session.get(remote_icon_url, stream=True)
-        if r.status_code == 200:
-            r.raw.decode_content = True
+        log.info("Could not find icon for '{}'".format(app_id))
 
-            with open(icon_file, 'wb') as f:
-                shutil.copyfileobj(r.raw, f)
-        else:
-            log.warning("Error getting icon for {}, status code {}".format(app.get_name(), r.status_code))
-
+    # Return path even if icon is missing, since GTK will replace it with a broken icon
     return icon_file
-
-
-def get_app_icon_by_name(app_name, remote_name) -> str:
-    """Returns the icon for an application"""
-    log.debug("Getting icon for " + app_name)
-
-    remote_icon_name = app_name + ".png"
-    remote_url = installation.get_remote_by_name(remote_name).get_url()
-    remote_icon_url = remote_url + "appstream/x86_64/icons/64x64/" + remote_icon_name
-    icon_file = path.join(tempdir.name, remote_icon_name)
-
-    # Download icon if not cached
-    if not path.exists(icon_file):
-        log.debug("Downloading icon for " + app_name)
-        r = session.get(remote_icon_url, stream=True)
-        if r.status_code == 200:
-            r.raw.decode_content = True
-
-            with open(icon_file, 'wb') as f:
-                shutil.copyfileobj(r.raw, f)
-        else:
-            log.warning("Error getting icon for {}, status code {}".format(app_name, r.status_code))
-
-    return icon_file
-
-
-def get_app_icon(app_name, remote_name) -> str:
-    """Returns the path of a local app icon"""
-    log.debug("Getting local icon path for " + app_name)
-
-    app_icon_file_path = "/var/lib/flatpak/appstream/{}/{}/icons/64x64".format(remote_name, arch)
-
-    if not path.exists(app_icon_file_path):
-        app_icon_file_path = "/var/lib/flatpak/appstream/{}/{}/active/icons/64x64".format(remote_name, arch)
-
-    icon_file = "{}/{}.png".format(app_icon_file_path, app_name)
-
-    if not path.exists(icon_file):
-        log.warning("Could not find icon for '{}'".format(app_name))
-
-    return icon_file
-
-
-def update_appstream(remote):
-    """Updates the local copy of appstream for remote"""
-    remote_name = remote.get_name()
-    log.debug("Updating appstream for " + remote_name)
-
-    try:
-        installation.update_appstream_full_sync(remote_name, arch, None, None, None)
-    except GLib.Error as err:
-        log.error(err)
-    else:
-        log.debug("Updated appstream for " + remote_name)
 
 
 def get_updates() -> [Flatpak.InstalledRef]:
-    """Returns a list of available updates"""
-    log.debug("Getting updates")
+    """Returns a list of refs with available updates"""
+    log.debug("Getting updatable refs")
     return installation.list_installed_refs_for_update(None)
 
 
+def get_installed_apps() -> [Flatpak.InstalledRef]:
+    """Returns a list of installed applications"""
+    log.debug("Getting installed applications")
+    return installation.list_installed_refs_by_kind(Flatpak.RefKind.APP, None)
+
+
 def get_updatable_apps() -> [Flatpak.InstalledRef]:
-    """Returns a list of all updatable apps"""
-    log.debug("Getting updatable apps")
+    """Returns a list of applications with available updates"""
+    log.debug("Getting updatable applications")
     updatable_apps = []
 
     for app in get_updates():
@@ -293,66 +279,73 @@ def get_updatable_apps() -> [Flatpak.InstalledRef]:
     return updatable_apps
 
 
-def get_installed_apps() -> [Flatpak.InstalledRef]:
-    """Returns a list of installed applications"""
-    log.debug("Getting installed applications")
-    return installation.list_installed_refs_by_kind(Flatpak.RefKind.APP, None)
+def get_remote_apps() -> [Flatpak.RemoteRef]:
+    """Returns a list of remote applications"""
+    log.debug("Getting remote applications")
+    remote_apps = []
+
+    for remote in get_remotes():
+        for ref in installation.list_remote_refs_sync(remote.get_name(), None):
+            # Only add desktop applications, not runtimes
+            if ref.get_kind() is Flatpak.RefKind.APP:
+                remote_apps.append(ref)
+
+    return remote_apps
 
 
-def get_num_of_installed_apps() -> int:
-    """Returns the number of installed applications"""
-    log.debug("Getting number of installed applications")
-    return len(get_installed_apps())
+def install_local_ref(ref_path: str):
+    """Installs a ref from a .flatpakref file"""
+    ref_id = path.basename(ref_path)
+    log.debug("Installing '{}'".format(ref_id))
 
-
-def get_num_of_updatable_apps() -> int:
-    """Returns the number of updatable applications"""
-    log.debug("Getting number of updatable applications")
-    return len(get_updates())
-
-
-def install_app(file):
-    """Installs an application from a ref file"""
-    filename = path.basename(file)
-    log.debug("Installing " + filename)
-
-    with open(file, 'rb') as f:
-        contents = f.read()
-        contents = GLib.Bytes.new(contents)
-
+    with open(ref_path, 'rb') as file:
+        ref_data = GLib.Bytes.new(file.read())
         try:
-            transaction = Flatpak.Transaction.new_for_installation(installation, None)
-            transaction.add_install_flatpakref(contents)
+            transaction: Flatpak.Transaction = Flatpak.Transaction \
+                .new_for_installation(installation, None)
+            transaction.add_install_flatpakref(ref_data)
             transaction.run()
         except GLib.Error as err:
             log.error(err)
         else:
-            log.debug("Installed " + filename)
+            log.debug("Installed '{}'".format(ref_id))
 
 
-def update_app(ref):
-    """Updates an application"""
-    log.debug("Updating " + ref.get_appdata_name())
+def install_remote_ref(ref_id: str, remote_name: str):
+    """Installs a ref based on its id and remote"""
+    try:
+        transaction: Flatpak.Transaction = Flatpak.Transaction \
+            .new_for_installation(installation, None)
+        transaction.add_install(remote_name, ref_id, None)
+        transaction.run()
+    except GLib.Error as err:
+        log.error(err)
+
+
+def update_ref(ref: Flatpak.InstalledRef):
+    """Updates an installed ref"""
+    log.debug("Updating '{}'".format(ref.get_name()))
 
     try:
-        transaction = Flatpak.Transaction.new_for_installation(installation, None)
+        transaction: Flatpak.Transaction = Flatpak.Transaction \
+            .new_for_installation(installation, None)
         transaction.add_update(ref.format_ref(), None, None)
         transaction.run()
     except GLib.Error as err:
         log.error(err)
     else:
-        log.debug("Updated " + ref.get_appdata_name())
+        log.debug("Updated '{}'".format(ref.get_name()))
 
 
-def update_all_apps():
-    """Updates all installed applications"""
-    log.debug("Updating all applications")
-    [update_app(app) for app in get_updates()]
+def update_all_refs():
+    """Updates all installed refs"""
+    log.debug("Updating all installed refs")
+    [update_ref(ref) for ref in get_updates()]
 
 
-def uninstall_app(ref):
-    """Uninstalls an application"""
-    log.debug("Uninstalling " + ref.get_appdata_name())
+def uninstall_ref(ref: Flatpak.InstalledRef):
+    """Uninstalls an installed ref"""
+    log.debug("Uninstalling '{}'".format(ref.get_name()))
 
     try:
         transaction = Flatpak.Transaction.new_for_installation(installation, None)
@@ -361,10 +354,4 @@ def uninstall_app(ref):
     except GLib.Error as err:
         log.error(err)
     else:
-        log.debug("Uninstalled " + ref.get_appdata_name())
-
-
-def cleanup():
-    """Cleanup temporary files"""
-    log.debug("Cleaning up")
-    tempdir.cleanup()
+        log.debug("Uninstalled '{}'".format(ref.get_name()))
