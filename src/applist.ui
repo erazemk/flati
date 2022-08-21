@@ -116,6 +116,7 @@
                 <property name="halign">start</property>
                 <property name="label" translatable="yes">Summary</property>
                 <property name="visible">True</property>
+                <property name="wrap">True</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -125,7 +126,6 @@
           </object>
           <packing>
             <property name="expand">False</property>
-            <property name="fill">True</property>
           </packing>
         </child>
       </object>

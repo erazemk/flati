@@ -49,6 +49,41 @@
             <property name="vexpand">True</property>
             <property name="visible">True</property>
             <child>
+              <object class="GtkBox" id="explore_window">
+                <property name="can-focus">False</property>
+                <property name="orientation">vertical</property>
+                <property name="visible">True</property>
+                <child>
+                  <object class="GtkScrolledWindow" id="explore_scroll_window">
+                    <property name="can-focus">True</property>
+                    <property name="shadow-type">in</property>
+                    <property name="visible">True</property>
+                    <child>
+                      <object class="GtkViewport">
+                        <property name="can-focus">False</property>
+                        <property name="visible">True</property>
+                        <child>
+                          <object class="GtkListBox" id="explore_list_box">
+                            <property name="can-focus">False</property>
+                            <property name="selection-mode">none</property>
+                            <property name="visible">True</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="expand">True</property>
+                    <property name="fill">True</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="name">explore-apps</property>
+                <property name="title">Explore</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkBox" id="list_window">
                 <property name="can-focus">False</property>
                 <property name="orientation">vertical</property>
